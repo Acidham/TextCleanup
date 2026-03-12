@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Text Cleanup</title>
+  <style>
+    /* ── Reset & base ── */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body { height: 100%; overflow: hidden; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.6rem 1.25rem;
+      background: rgba(255,255,255,0.06);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      backdrop-filter: blur(10px);
+      gap: 1rem;
+    }
+
+    .app-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      opacity: 0.6;
+    }
+
+    .toolbar-center { display: flex; gap: 0.5rem; }
+
+    .toolbar-right {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      min-width: 80px;
+      justify-content: flex-end;
+    }
+
+    .char-count {
+      font-size: 0.75rem;
+      opacity: 0.4;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── Buttons ── */
+    .tool-btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.45rem 0.9rem;
+      font-size: 0.82rem;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 7px;
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s, transform 0.1s;
+      white-space: nowrap;
+    }
+
+    .tool-btn:hover:not(:disabled) { background: rgba(255,255,255,0.2); }
+    .tool-btn:active:not(:disabled) { transform: scale(0.97); }
+    .tool-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    .tool-btn--danger:hover:not(:disabled) {
+      background: rgba(233,69,96,0.3);
+      border-color: rgba(233,69,96,0.5);
+    }
+
+    .tool-btn--icon {
+      padding: 0.45rem 0.6rem;
+      font-size: 1rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 4px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      border-radius: 9px;
+      background: rgba(255,255,255,0.25);
+      color: #fff;
+    }
+
+    /* ── Editor area ── */
+    .editor-area {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .editor {
+      width: 100%;
+      height: 100%;
+      padding: 1.25rem 1.5rem;
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 0.95rem;
+      line-height: 1.7;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: rgba(255,255,255,0.9);
+      resize: none;
+      caret-color: #e94560;
+    }
+
+    .editor::placeholder { color: rgba(255,255,255,0.2); }
+
+    /* ── Loading overlay ── */
+    .loading-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(15,25,60,0.8);
+      backdrop-filter: blur(4px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      z-index: 10;
+    }
+
+    .loading-spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid rgba(255,255,255,0.15);
+      border-top-color: #e94560;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-text { font-size: 0.85rem; opacity: 0.55; letter-spacing: 1.5px; }
+
+    /* ── Instruction bar ── */
+    .instruction-bar {
+      flex-shrink: 0;
+      padding: 0.75rem 1.25rem;
+      background: rgba(255,255,255,0.06);
+      border-top: 1px solid rgba(255,255,255,0.1);
+      backdrop-filter: blur(10px);
+    }
+
+    .instruction-inner {
+      display: flex;
+      gap: 0.6rem;
+      align-items: center;
+    }
+
+    .instruction-input {
+      flex: 1;
+      padding: 0.65rem 1rem;
+      font-size: 0.9rem;
+      font-family: inherit;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 8px;
+      color: #fff;
+      outline: none;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .instruction-input::placeholder { color: rgba(255,255,255,0.3); }
+    .instruction-input:focus {
+      background: rgba(255,255,255,0.15);
+      border-color: rgba(233,69,96,0.5);
+    }
+    .instruction-input:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .apply-btn {
+      padding: 0.65rem 1.5rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      font-family: inherit;
+      border: none;
+      border-radius: 8px;
+      background: #e94560;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      white-space: nowrap;
+    }
+
+    .apply-btn:hover:not(:disabled) { background: #c73652; }
+    .apply-btn:active:not(:disabled) { transform: scale(0.97); }
+    .apply-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* ── Error message ── */
+    .error-msg {
+      font-size: 0.8rem;
+      color: #ff7a7a;
+      margin-top: 0.45rem;
+      padding-left: 0.1rem;
+    }
+
+    /* ── Prompt history ── */
+    .prompt-history-row {
+      margin-top: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .prompt-history-row .prompt-history-label {
+      font-size: 0.75rem;
+      opacity: 0.5;
+      flex-shrink: 0;
+    }
+
+    .prompt-history-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+
+    .prompt-history-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.2rem;
+      padding: 0.3rem 0.35rem 0.3rem 0.6rem;
+      font-size: 0.78rem;
+      font-family: inherit;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 6px;
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.85);
+      max-width: 260px;
+      overflow: hidden;
+    }
+
+    .prompt-history-chip-text {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .prompt-history-chip-delete {
+      flex-shrink: 0;
+      width: 20px;
+      height: 20px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      line-height: 1;
+      border: none;
+      border-radius: 4px;
+      background: transparent;
+      color: rgba(255,255,255,0.5);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .prompt-history-chip-delete:hover {
+      background: rgba(233,69,96,0.35);
+      color: #fff;
+    }
+
+    /* ── API Key modal ── */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .modal {
+      background: linear-gradient(135deg, #1e2a45, #162035);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 14px;
+      padding: 2rem;
+      width: 420px;
+      max-width: 90vw;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+
+    .modal.modal-settings { width: 460px; }
+
+    .modal h2 {
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      margin-bottom: 0.4rem;
+    }
+
+    .modal p {
+      font-size: 0.82rem;
+      opacity: 0.55;
+      margin-bottom: 1.25rem;
+      line-height: 1.5;
+    }
+
+    .modal-input {
+      width: 100%;
+      padding: 0.65rem 1rem;
+      font-size: 0.88rem;
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      color: #fff;
+      outline: none;
+      margin-bottom: 1rem;
+      transition: border-color 0.2s;
+    }
+
+    .modal-input:focus { border-color: rgba(233,69,96,0.6); }
+
+    .modal-row {
+      margin-bottom: 1rem;
+    }
+
+    .modal-row:last-of-type { margin-bottom: 0; }
+
+    .modal-label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      opacity: 0.7;
+      margin-bottom: 0.35rem;
+      letter-spacing: 0.5px;
+    }
+
+    .modal-select {
+      width: 100%;
+      padding: 0.65rem 1rem;
+      font-size: 0.88rem;
+      font-family: inherit;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      color: #fff;
+      outline: none;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+
+    .modal-select:focus { border-color: rgba(233,69,96,0.6); }
+
+    .modal-select option { background: #1e2a45; color: #fff; }
+
+    .modal-section {
+      margin-bottom: 1.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .modal-section:last-of-type { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+
+    .modal-section-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      opacity: 0.9;
+      margin-bottom: 0.75rem;
+    }
+
+    .modal-actions { display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 1.25rem; }
+
+    .modal-save {
+      padding: 0.55rem 1.25rem;
+      font-size: 0.88rem;
+      font-weight: 600;
+      font-family: inherit;
+      border: none;
+      border-radius: 8px;
+      background: #e94560;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .modal-save:hover { background: #c73652; }
+
+    .modal-cancel {
+      padding: 0.55rem 1.25rem;
+      font-size: 0.88rem;
+      font-family: inherit;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .modal-cancel:hover { background: rgba(255,255,255,0.15); }
+
+    /* ── Utility ── */
+    .hidden { display: none !important; }
+
+    #copyBtn.copied {
+      background: rgba(50,200,100,0.2);
+      border-color: rgba(50,200,100,0.45);
+      color: #6effa0;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── API & Model Settings Modal ── -->
+  <div id="apiModal" class="modal-backdrop hidden">
+    <div class="modal modal-settings">
+      <h2>&#9881; API & Model</h2>
+      <p>Keys and model choices are stored locally in this browser only.</p>
+      <div class="modal-row">
+        <label class="modal-label" for="providerSelect">Provider</label>
+        <select id="providerSelect" class="modal-select">
+          <option value="anthropic">Anthropic (Claude)</option>
+          <option value="openai">OpenAI (GPT)</option>
+        </select>
+      </div>
+      <div id="anthropicSection" class="modal-section">
+        <div class="modal-section-title">Anthropic</div>
+        <div class="modal-row">
+          <label class="modal-label" for="anthropicKeyInput">API Key</label>
+          <input
+            type="password"
+            id="anthropicKeyInput"
+            class="modal-input"
+            placeholder="sk-ant-..."
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+        <div class="modal-row">
+          <label class="modal-label" for="anthropicModelSelect">Model</label>
+          <select id="anthropicModelSelect" class="modal-select"></select>
+        </div>
+      </div>
+      <div id="openaiSection" class="modal-section hidden">
+        <div class="modal-section-title">OpenAI</div>
+        <div class="modal-row">
+          <label class="modal-label" for="openaiKeyInput">API Key</label>
+          <input
+            type="password"
+            id="openaiKeyInput"
+            class="modal-input"
+            placeholder="sk-..."
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+        <div class="modal-row">
+          <label class="modal-label" for="openaiModelSelect">Model</label>
+          <select id="openaiModelSelect" class="modal-select"></select>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="modalCancel" class="modal-cancel">Cancel</button>
+        <button id="modalSave" class="modal-save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Top Toolbar ── -->
+  <header class="toolbar">
+    <div class="toolbar-left">
+      <span class="app-title">Text Cleanup</span>
+    </div>
+    <div class="toolbar-center">
+      <button id="undoBtn" class="tool-btn" title="Undo last transformation (Cmd+Z)" disabled>
+        &#8617; Undo
+        <span id="undoCount" class="badge hidden">0</span>
+      </button>
+      <button id="copyBtn" class="tool-btn" title="Copy all text to clipboard">
+        &#8998; Copy
+      </button>
+      <button id="clearBtn" class="tool-btn tool-btn--danger" title="Clear all text and history">
+        &#10005; Clear
+      </button>
+    </div>
+    <div class="toolbar-right">
+      <span id="charCount" class="char-count">0 chars</span>
+      <button id="settingsBtn" class="tool-btn tool-btn--icon" title="API & Model settings">&#9881;</button>
+    </div>
+  </header>
+
+  <!-- ── Main Editor ── -->
+  <main class="editor-area">
+    <textarea
+      id="editor"
+      class="editor"
+      placeholder="Paste or type your text here..."
+      spellcheck="false"
+    ></textarea>
+
+    <div id="loadingOverlay" class="loading-overlay hidden">
+      <div class="loading-spinner"></div>
+      <p class="loading-text">Transforming...</p>
+    </div>
+  </main>
+
+  <!-- ── Bottom Instruction Bar ── -->
+  <footer class="instruction-bar">
+    <div class="instruction-inner">
+      <input
+        type="text"
+        id="instructionInput"
+        class="instruction-input"
+        placeholder='Type an instruction, e.g. "Sort lines alphabetically" or "Remove empty lines"'
+        autocomplete="off"
+      />
+      <button id="applyBtn" class="apply-btn">Apply</button>
+    </div>
+    <div id="promptHistoryRow" class="prompt-history-row hidden">
+      <span class="prompt-history-label">Recent:</span>
+      <div id="promptHistoryList" class="prompt-history-list"></div>
+    </div>
+    <p id="errorMsg" class="error-msg hidden"></p>
+  </footer>
+
+  <script>
+    // ─────────────────────────────────────────────
+    // Element references
+    // ─────────────────────────────────────────────
+    const editor           = document.getElementById('editor');
+    const undoBtn          = document.getElementById('undoBtn');
+    const undoCount        = document.getElementById('undoCount');
+    const copyBtn          = document.getElementById('copyBtn');
+    const clearBtn         = document.getElementById('clearBtn');
+    const charCount        = document.getElementById('charCount');
+    const instructionInput = document.getElementById('instructionInput');
+    const applyBtn         = document.getElementById('applyBtn');
+    const loadingOverlay   = document.getElementById('loadingOverlay');
+    const errorMsg         = document.getElementById('errorMsg');
+    const settingsBtn      = document.getElementById('settingsBtn');
+    const apiModal         = document.getElementById('apiModal');
+    const providerSelect    = document.getElementById('providerSelect');
+    const anthropicSection  = document.getElementById('anthropicSection');
+    const openaiSection     = document.getElementById('openaiSection');
+    const anthropicKeyInput = document.getElementById('anthropicKeyInput');
+    const anthropicModelSelect = document.getElementById('anthropicModelSelect');
+    const openaiKeyInput   = document.getElementById('openaiKeyInput');
+    const openaiModelSelect = document.getElementById('openaiModelSelect');
+    const modalSave        = document.getElementById('modalSave');
+    const modalCancel      = document.getElementById('modalCancel');
+
+    const STORAGE_PROVIDER       = 'text_cleanup_provider';
+    const STORAGE_ANTHROPIC_KEY  = 'text_cleanup_anthropic_api_key';
+    const STORAGE_ANTHROPIC_MODEL = 'text_cleanup_anthropic_model';
+    const STORAGE_OPENAI_KEY     = 'text_cleanup_openai_api_key';
+    const STORAGE_OPENAI_MODEL   = 'text_cleanup_openai_model';
+    const PROMPT_HISTORY_KEY     = 'text_cleanup_prompt_history';
+    const MAX_PROMPT_HISTORY     = 6;
+    const ANTHROPIC_URL          = 'https://api.anthropic.com/v1/messages';
+    const OPENAI_URL             = 'https://api.openai.com/v1/chat/completions';
+
+    const ANTHROPIC_MODELS = [
+      { id: 'claude-3-5-haiku-20241022',   label: 'Claude 3.5 Haiku', recommended: true },
+      { id: 'claude-haiku-4-5-20251001',   label: 'Claude Haiku 4.5' },
+      { id: 'claude-3-haiku-20240307',     label: 'Claude 3 Haiku' },
+    ];
+
+    const OPENAI_MODELS = [
+      { id: 'gpt-4o-mini',        label: 'GPT-4o Mini', recommended: true },
+      { id: 'gpt-3.5-turbo',      label: 'GPT-3.5 Turbo' },
+      { id: 'o1-mini',            label: 'o1 Mini' },
+    ];
+
+    const promptHistoryRow    = document.getElementById('promptHistoryRow');
+    const promptHistoryList   = document.getElementById('promptHistoryList');
+
+    let promptHistory = [];
+    try {
+      const stored = localStorage.getItem(PROMPT_HISTORY_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        promptHistory = Array.isArray(parsed)
+          ? parsed.filter((s) => typeof s === 'string').slice(0, MAX_PROMPT_HISTORY)
+          : [];
+      }
+    } catch (_) {
+      promptHistory = [];
+    }
+
+    // ─────────────────────────────────────────────
+    // API & model settings
+    // ─────────────────────────────────────────────
+    function getProvider() {
+      const p = localStorage.getItem(STORAGE_PROVIDER) || 'anthropic';
+      return p === 'openai' ? 'openai' : 'anthropic';
+    }
+
+    function getAnthropicKey() {
+      return localStorage.getItem(STORAGE_ANTHROPIC_KEY) || '';
+    }
+
+    function getOpenaiKey() {
+      return localStorage.getItem(STORAGE_OPENAI_KEY) || '';
+    }
+
+    function getAnthropicModel() {
+      const saved = localStorage.getItem(STORAGE_ANTHROPIC_MODEL) || '';
+      const valid = ANTHROPIC_MODELS.some((m) => m.id === saved);
+      return valid ? saved : 'claude-3-5-haiku-20241022';
+    }
+
+    function getOpenaiModel() {
+      const saved = localStorage.getItem(STORAGE_OPENAI_MODEL) || '';
+      const valid = OPENAI_MODELS.some((m) => m.id === saved);
+      return valid ? saved : 'gpt-4o-mini';
+    }
+
+    function fillModelSelect(select, models, selectedId) {
+      select.innerHTML = '';
+      models.forEach((m) => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.recommended ? `${m.label} (Recommended)` : m.label;
+        if (m.id === selectedId) opt.selected = true;
+        select.appendChild(opt);
+      });
+    }
+
+    function updateModalProviderVisibility() {
+      const isAnthropic = providerSelect.value !== 'openai';
+      anthropicSection.classList.toggle('hidden', !isAnthropic);
+      openaiSection.classList.toggle('hidden', isAnthropic);
+    }
+
+    function openModal() {
+      providerSelect.value = getProvider();
+      anthropicKeyInput.value = getAnthropicKey();
+      openaiKeyInput.value = getOpenaiKey();
+      fillModelSelect(anthropicModelSelect, ANTHROPIC_MODELS, getAnthropicModel());
+      fillModelSelect(openaiModelSelect, OPENAI_MODELS, getOpenaiModel());
+      anthropicKeyInput.style.borderColor = '';
+      openaiKeyInput.style.borderColor = '';
+      updateModalProviderVisibility();
+      apiModal.classList.remove('hidden');
+      providerSelect.focus();
+    }
+
+    providerSelect.addEventListener('change', updateModalProviderVisibility);
+
+    function closeModal() {
+      apiModal.classList.add('hidden');
+    }
+
+    function hasAnyApiKey() {
+      return !!(getAnthropicKey().trim() || getOpenaiKey().trim());
+    }
+
+    settingsBtn.addEventListener('click', openModal);
+
+    modalCancel.addEventListener('click', closeModal);
+
+    modalSave.addEventListener('click', () => {
+      const provider = providerSelect.value === 'openai' ? 'openai' : 'anthropic';
+      const anthropicKey = anthropicKeyInput.value.trim();
+      const openaiKey = openaiKeyInput.value.trim();
+      const anthropicModel = anthropicModelSelect.value;
+      const openaiModel = openaiModelSelect.value;
+      if (provider === 'anthropic' && !anthropicKey) {
+        anthropicKeyInput.style.borderColor = 'rgba(233,69,96,0.8)';
+        return;
+      }
+      if (provider === 'openai' && !openaiKey) {
+        openaiKeyInput.style.borderColor = 'rgba(233,69,96,0.8)';
+        return;
+      }
+      localStorage.setItem(STORAGE_PROVIDER, provider);
+      localStorage.setItem(STORAGE_ANTHROPIC_KEY, anthropicKey);
+      localStorage.setItem(STORAGE_OPENAI_KEY, openaiKey);
+      localStorage.setItem(STORAGE_ANTHROPIC_MODEL, anthropicModel);
+      localStorage.setItem(STORAGE_OPENAI_MODEL, openaiModel);
+      closeModal();
+      clearError();
+      instructionInput.focus();
+    });
+
+    [anthropicKeyInput, openaiKeyInput, providerSelect, anthropicModelSelect, openaiModelSelect].forEach((el) => {
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') modalSave.click();
+        if (e.key === 'Escape') closeModal();
+      });
+    });
+
+    apiModal.addEventListener('click', (e) => {
+      if (e.target === apiModal) closeModal();
+    });
+
+    // ─────────────────────────────────────────────
+    // Undo stack
+    // ─────────────────────────────────────────────
+    const undoStack = [];
+    const MAX_UNDO  = 50;
+
+    function pushUndo(text) {
+      undoStack.push(text);
+      if (undoStack.length > MAX_UNDO) undoStack.shift();
+      updateUndoUI();
+    }
+
+    function popUndo() {
+      const prev = undoStack.pop();
+      updateUndoUI();
+      return prev;
+    }
+
+    function updateUndoUI() {
+      const count = undoStack.length;
+      undoBtn.disabled = count === 0;
+      if (count > 0) {
+        undoCount.textContent = count;
+        undoCount.classList.remove('hidden');
+      } else {
+        undoCount.classList.add('hidden');
+      }
+    }
+
+    // ─────────────────────────────────────────────
+    // Character count
+    // ─────────────────────────────────────────────
+    function updateCharCount() {
+      charCount.textContent = editor.value.length.toLocaleString() + ' chars';
+    }
+
+    editor.addEventListener('input', updateCharCount);
+
+    // ─────────────────────────────────────────────
+    // Error helpers
+    // ─────────────────────────────────────────────
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorMsg.classList.remove('hidden');
+    }
+
+    function clearError() {
+      errorMsg.textContent = '';
+      errorMsg.classList.add('hidden');
+    }
+
+    // ─────────────────────────────────────────────
+    // Prompt history
+    // ─────────────────────────────────────────────
+    function pushPromptHistory(instruction) {
+      const trimmed = instruction.trim();
+      if (!trimmed) return;
+      promptHistory = promptHistory.filter((s) => s !== trimmed);
+      promptHistory.unshift(trimmed);
+      promptHistory = promptHistory.slice(0, MAX_PROMPT_HISTORY);
+      try {
+        localStorage.setItem(PROMPT_HISTORY_KEY, JSON.stringify(promptHistory));
+      } catch (_) {}
+      renderPromptHistory();
+    }
+
+    const PROMPT_HISTORY_TRUNCATE = 40;
+
+    function removePromptHistoryEntry(text) {
+      promptHistory = promptHistory.filter((s) => s !== text);
+      try {
+        localStorage.setItem(PROMPT_HISTORY_KEY, JSON.stringify(promptHistory));
+      } catch (_) {}
+      renderPromptHistory();
+    }
+
+    function renderPromptHistory() {
+      promptHistoryList.innerHTML = '';
+      promptHistory.forEach((text) => {
+        const chip = document.createElement('span');
+        chip.className = 'prompt-history-chip';
+        const label = text.length > PROMPT_HISTORY_TRUNCATE
+          ? text.slice(0, PROMPT_HISTORY_TRUNCATE) + '…'
+          : text;
+        chip.innerHTML = `
+          <span class="prompt-history-chip-text" data-prompt="${escapeHtml(text)}" title="${escapeHtml(text)}">${escapeHtml(label)}</span>
+          <button type="button" class="prompt-history-chip-delete" data-prompt="${escapeHtml(text)}" title="Remove from history" aria-label="Remove">×</button>
+        `;
+        promptHistoryList.appendChild(chip);
+      });
+      promptHistoryRow.classList.toggle('hidden', promptHistory.length === 0);
+    }
+
+    function escapeHtml(s) {
+      const div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    promptHistoryList.addEventListener('click', (e) => {
+      const textEl = e.target.closest('.prompt-history-chip-text');
+      const deleteBtn = e.target.closest('.prompt-history-chip-delete');
+      if (deleteBtn && deleteBtn.dataset.prompt) {
+        e.preventDefault();
+        removePromptHistoryEntry(deleteBtn.dataset.prompt);
+        return;
+      }
+      if (textEl && textEl.dataset.prompt) {
+        instructionInput.value = textEl.dataset.prompt;
+        instructionInput.focus();
+      }
+    });
+
+    // ─────────────────────────────────────────────
+    // Loading state
+    // ─────────────────────────────────────────────
+    function setLoading(isLoading) {
+      loadingOverlay.classList.toggle('hidden', !isLoading);
+      applyBtn.disabled         = isLoading;
+      instructionInput.disabled = isLoading;
+      undoBtn.disabled          = isLoading || undoStack.length === 0;
+      copyBtn.disabled          = isLoading;
+      clearBtn.disabled         = isLoading;
+    }
+
+    const SYSTEM_PROMPT = `You are a precise text transformation engine. Apply the following instruction to the text below.
+
+CRITICAL RULES:
+- Return ONLY the transformed text. No explanations, no commentary, no markdown formatting.
+- Preserve all newlines and whitespace unless the instruction specifically asks to change them.
+- If the text is empty and the instruction doesn't ask you to generate text, return an empty string.
+- Do not add any preamble like "Here is the transformed text:" — output the result directly.`;
+
+    function buildUserMessage(instruction, text) {
+      return `INSTRUCTION: ${instruction}
+
+TEXT TO TRANSFORM:
+${text}`;
+    }
+
+    async function callAnthropic(apiKey, model, instruction, text) {
+      const response = await fetch(ANTHROPIC_URL, {
+        method: 'POST',
+        headers: {
+          'content-type':                          'application/json',
+          'x-api-key':                             apiKey,
+          'anthropic-version':                     '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model:      model,
+          max_tokens: 8192,
+          messages: [
+            { role: 'user', content: `${SYSTEM_PROMPT}\n\n${buildUserMessage(instruction, text)}` },
+          ],
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        const errMsg = data?.error?.message || `API error (${response.status})`;
+        throw new Error(errMsg);
+      }
+      return data?.content?.[0]?.text ?? '';
+    }
+
+    async function callOpenAI(apiKey, model, instruction, text) {
+      const response = await fetch(OPENAI_URL, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model:      model,
+          max_tokens: 8192,
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'user', content: buildUserMessage(instruction, text) },
+          ],
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        const errMsg = data?.error?.message || `API error (${response.status})`;
+        throw new Error(errMsg);
+      }
+      return data?.choices?.[0]?.message?.content?.trim() ?? '';
+    }
+
+    async function applyTransformation() {
+      const instruction = instructionInput.value.trim();
+      const text        = editor.value;
+      const provider    = getProvider();
+
+      if (!instruction) {
+        showError('Please type an instruction before clicking Apply.');
+        instructionInput.focus();
+        return;
+      }
+
+      const anthropicKey = getAnthropicKey();
+      const openaiKey    = getOpenaiKey();
+      if (provider === 'anthropic' && !anthropicKey) {
+        showError('No Anthropic API key set. Click the ⚙ gear to add your key and choose a model.');
+        openModal();
+        return;
+      }
+      if (provider === 'openai' && !openaiKey) {
+        showError('No OpenAI API key set. Click the ⚙ gear to add your key and choose a model.');
+        openModal();
+        return;
+      }
+
+      clearError();
+      setLoading(true);
+      pushUndo(text);
+
+      try {
+        let transformed;
+        if (provider === 'anthropic') {
+          transformed = await callAnthropic(
+            anthropicKey,
+            getAnthropicModel(),
+            instruction,
+            text
+          );
+        } else {
+          transformed = await callOpenAI(
+            openaiKey,
+            getOpenaiModel(),
+            instruction,
+            text
+          );
+        }
+        editor.value = transformed;
+        updateCharCount();
+        pushPromptHistory(instruction);
+        instructionInput.value = '';
+      } catch (err) {
+        popUndo();
+        showError(err.message || 'Network error — check your internet connection.');
+        console.error(err);
+      } finally {
+        setLoading(false);
+        instructionInput.focus();
+      }
+    }
+
+    // ─────────────────────────────────────────────
+    // Undo
+    // ─────────────────────────────────────────────
+    function performUndo() {
+      if (undoStack.length === 0) return;
+      editor.value = popUndo();
+      updateCharCount();
+    }
+
+    // ─────────────────────────────────────────────
+    // Copy
+    // ─────────────────────────────────────────────
+    async function copyToClipboard() {
+      if (!editor.value) return;
+      try {
+        await navigator.clipboard.writeText(editor.value);
+        copyBtn.classList.add('copied');
+        copyBtn.innerHTML = '&#10003; Copied';
+        setTimeout(() => {
+          copyBtn.classList.remove('copied');
+          copyBtn.innerHTML = '&#8998; Copy';
+        }, 1500);
+      } catch (err) {
+        showError('Could not access clipboard. Try Cmd+A then Cmd+C.');
+      }
+    }
+
+    // ─────────────────────────────────────────────
+    // Clear
+    // ─────────────────────────────────────────────
+    function clearAll() {
+      if (editor.value === '' && undoStack.length === 0) return;
+      editor.value     = '';
+      undoStack.length = 0;
+      updateUndoUI();
+      updateCharCount();
+      clearError();
+      editor.focus();
+    }
+
+    // ─────────────────────────────────────────────
+    // Event listeners
+    // ─────────────────────────────────────────────
+    applyBtn.addEventListener('click', applyTransformation);
+    undoBtn.addEventListener('click', performUndo);
+    copyBtn.addEventListener('click', copyToClipboard);
+    clearBtn.addEventListener('click', clearAll);
+
+    instructionInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); applyTransformation(); }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        if (document.activeElement !== editor) {
+          e.preventDefault();
+          performUndo();
+        }
+      }
+    });
+
+    // ─────────────────────────────────────────────
+    // Init — show API key modal if no key saved yet
+    // ─────────────────────────────────────────────
+    updateCharCount();
+    updateUndoUI();
+    renderPromptHistory();
+
+    if (!hasAnyApiKey()) {
+      openModal();
+    } else {
+      instructionInput.focus();
+    }
+  </script>
+</body>
+</html>
