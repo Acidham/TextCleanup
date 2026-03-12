@@ -25,8 +25,6 @@
       color: #fff;
       display: flex;
       flex-direction: column;
-      min-height: 100vh;
-      min-height: -webkit-fill-available;
       height: 100%;
       overflow: hidden;
       padding-left: env(safe-area-inset-left);
@@ -336,7 +334,7 @@
       max-height: 85vh;
       overflow-y: auto;
       box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-      margin: 0 0 1rem;
+      margin: auto 0 1rem;
     }
 
     .modal.modal-settings { width: 460px; }
@@ -692,9 +690,8 @@
     ];
 
     const GEMINI_MODELS = [
-      { id: 'gemini-2.5-flash',   label: 'Gemini 2.5 Flash', recommended: true },
-      { id: 'gemini-2.0-flash',   label: 'Gemini 2.0 Flash' },
-      { id: 'gemini-1.5-flash',   label: 'Gemini 1.5 Flash' },
+      { id: 'gemini-2.0-flash',   label: 'Gemini 2.0 Flash', recommended: true },
+      { id: 'gemini-1.5-flash',    label: 'Gemini 1.5 Flash' },
       { id: 'gemini-1.5-flash-8b', label: 'Gemini 1.5 Flash 8B' },
       { id: 'gemini-1.5-pro',     label: 'Gemini 1.5 Pro' },
     ];
@@ -752,7 +749,7 @@
     function getGeminiModel() {
       const saved = localStorage.getItem(STORAGE_GEMINI_MODEL) || '';
       const valid = GEMINI_MODELS.some((m) => m.id === saved);
-      return valid ? saved : 'gemini-2.5-flash';
+      return valid ? saved : 'gemini-2.0-flash';
     }
 
     function fillModelSelect(select, models, selectedId) {
@@ -1203,6 +1200,15 @@ ${text}`;
       openModal();
     } else {
       instructionInput.focus();
+    }
+
+    // Fix: iOS keyboard resize — shrink editor instead of pushing layout off-screen
+    if (window.visualViewport) {
+      const onViewportChange = () => {
+        document.body.style.height = window.visualViewport.height + 'px';
+      };
+      window.visualViewport.addEventListener('resize', onViewportChange);
+      window.visualViewport.addEventListener('scroll', onViewportChange);
     }
   </script>
 </body>
