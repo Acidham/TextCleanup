@@ -462,12 +462,23 @@
       }
     }
 
-    /* ── Small screens: toolbar and instruction bar layout ── */
+    /* ── Small screens: toolbar icons only, instruction bar layout ── */
     @media (max-width: 600px) {
       .toolbar {
-        flex-wrap: wrap;
-        gap: 0.5rem;
+        flex-wrap: nowrap;
+        gap: 0.4rem;
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
       }
+      .toolbar-center .tool-btn {
+        padding: 0.45rem 0.55rem;
+      }
+      .tool-btn-label { display: none; }
+      .toolbar-right {
+        flex-shrink: 0;
+        gap: 0.4rem;
+      }
+      .char-count { font-size: 0.7rem; }
       .instruction-inner {
         flex-wrap: wrap;
       }
@@ -553,14 +564,17 @@
     </div>
     <div class="toolbar-center">
       <button id="undoBtn" class="tool-btn" title="Undo last transformation (Cmd+Z)" disabled>
-        &#8617; Undo
+        <span class="tool-btn-icon" aria-hidden="true">&#8617;</span>
+        <span class="tool-btn-label">Undo</span>
         <span id="undoCount" class="badge hidden">0</span>
       </button>
       <button id="copyBtn" class="tool-btn" title="Copy all text to clipboard">
-        &#8998; Copy
+        <span class="tool-btn-icon" aria-hidden="true">&#128203;</span>
+        <span class="tool-btn-label">Copy</span>
       </button>
       <button id="clearBtn" class="tool-btn tool-btn--danger" title="Clear all text and history">
-        &#10005; Clear
+        <span class="tool-btn-icon" aria-hidden="true">&#10005;</span>
+        <span class="tool-btn-label">Clear</span>
       </button>
     </div>
     <div class="toolbar-right">
@@ -640,8 +654,8 @@
     const OPENAI_URL             = 'https://api.openai.com/v1/chat/completions';
 
     const ANTHROPIC_MODELS = [
-      { id: 'claude-3-5-haiku-20241022',   label: 'Claude 3.5 Haiku', recommended: true },
-      { id: 'claude-haiku-4-5-20251001',   label: 'Claude Haiku 4.5' },
+      { id: 'claude-haiku-4-5-20251001',   label: 'Claude Haiku 4.5', recommended: true },
+      { id: 'claude-3-5-haiku-20241022',   label: 'Claude 3.5 Haiku' },
       { id: 'claude-3-haiku-20240307',     label: 'Claude 3 Haiku' },
     ];
 
@@ -686,7 +700,7 @@
     function getAnthropicModel() {
       const saved = localStorage.getItem(STORAGE_ANTHROPIC_MODEL) || '';
       const valid = ANTHROPIC_MODELS.some((m) => m.id === saved);
-      return valid ? saved : 'claude-3-5-haiku-20241022';
+      return valid ? saved : 'claude-haiku-4-5-20251001';
     }
 
     function getOpenaiModel() {
@@ -1014,7 +1028,11 @@ ${text}`;
         instructionInput.value = '';
       } catch (err) {
         popUndo();
-        showError(err.message || 'Network error — check your internet connection.');
+        let msg = err.message || 'Network error — check your internet connection.';
+        if (/model\s*:\s*[\w-]+/i.test(msg) || /model .* (does not exist|not found|invalid)/i.test(msg)) {
+          msg = 'The selected model isn\'t available. Try another model in Settings (gear icon).';
+        }
+        showError(msg);
         console.error(err);
       } finally {
         setLoading(false);
@@ -1039,10 +1057,10 @@ ${text}`;
       try {
         await navigator.clipboard.writeText(editor.value);
         copyBtn.classList.add('copied');
-        copyBtn.innerHTML = '&#10003; Copied';
+        copyBtn.innerHTML = '<span class="tool-btn-icon" aria-hidden="true">&#10003;</span><span class="tool-btn-label">Copied</span>';
         setTimeout(() => {
           copyBtn.classList.remove('copied');
-          copyBtn.innerHTML = '&#8998; Copy';
+          copyBtn.innerHTML = '<span class="tool-btn-icon" aria-hidden="true">&#128203;</span><span class="tool-btn-label">Copy</span>';
         }, 1500);
       } catch (err) {
         showError('Could not access clipboard. Try Cmd+A then Cmd+C.');
