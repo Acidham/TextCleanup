@@ -14,8 +14,6 @@
 
     html {
       height: 100%;
-      min-height: 100vh;
-      min-height: -webkit-fill-available;
       overflow: hidden;
     }
 
@@ -25,9 +23,7 @@
       color: #fff;
       display: flex;
       flex-direction: column;
-      min-height: 100vh;
-      min-height: -webkit-fill-available;
-      height: 100%;
+      height: var(--app-height, 100svh);
       overflow: hidden;
       padding-left: env(safe-area-inset-left);
       padding-right: env(safe-area-inset-right);
@@ -1201,6 +1197,19 @@ ${text}`;
     } else {
       instructionInput.focus();
     }
+
+    // ─────────────────────────────────────────────
+    // Visual viewport — shrink layout when iOS keyboard appears
+    // ─────────────────────────────────────────────
+    function updateAppHeight() {
+      const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      document.documentElement.style.setProperty('--app-height', h + 'px');
+    }
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', updateAppHeight);
+    }
+    window.addEventListener('resize', updateAppHeight);
+    updateAppHeight();
   </script>
 </body>
 </html>
