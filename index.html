@@ -510,6 +510,7 @@
       <div class="modal-row">
         <label class="modal-label" for="providerSelect">Provider</label>
         <select id="providerSelect" class="modal-select">
+          <option value="gemini">Google (Gemini) — free tier</option>
           <option value="anthropic">Anthropic (Claude)</option>
           <option value="openai">OpenAI (GPT)</option>
         </select>
@@ -548,6 +549,24 @@
         <div class="modal-row">
           <label class="modal-label" for="openaiModelSelect">Model</label>
           <select id="openaiModelSelect" class="modal-select"></select>
+        </div>
+      </div>
+      <div id="geminiSection" class="modal-section hidden">
+        <div class="modal-section-title">Google Gemini</div>
+        <div class="modal-row">
+          <label class="modal-label" for="geminiKeyInput">API Key</label>
+          <input
+            type="password"
+            id="geminiKeyInput"
+            class="modal-input"
+            placeholder="AIza..."
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+        <div class="modal-row">
+          <label class="modal-label" for="geminiModelSelect">Model</label>
+          <select id="geminiModelSelect" class="modal-select"></select>
         </div>
       </div>
       <div class="modal-actions">
@@ -636,22 +655,28 @@
     const providerSelect    = document.getElementById('providerSelect');
     const anthropicSection  = document.getElementById('anthropicSection');
     const openaiSection     = document.getElementById('openaiSection');
+    const geminiSection     = document.getElementById('geminiSection');
     const anthropicKeyInput = document.getElementById('anthropicKeyInput');
     const anthropicModelSelect = document.getElementById('anthropicModelSelect');
     const openaiKeyInput   = document.getElementById('openaiKeyInput');
     const openaiModelSelect = document.getElementById('openaiModelSelect');
+    const geminiKeyInput   = document.getElementById('geminiKeyInput');
+    const geminiModelSelect = document.getElementById('geminiModelSelect');
     const modalSave        = document.getElementById('modalSave');
     const modalCancel      = document.getElementById('modalCancel');
 
-    const STORAGE_PROVIDER       = 'text_cleanup_provider';
-    const STORAGE_ANTHROPIC_KEY  = 'text_cleanup_anthropic_api_key';
-    const STORAGE_ANTHROPIC_MODEL = 'text_cleanup_anthropic_model';
-    const STORAGE_OPENAI_KEY     = 'text_cleanup_openai_api_key';
-    const STORAGE_OPENAI_MODEL   = 'text_cleanup_openai_model';
-    const PROMPT_HISTORY_KEY     = 'text_cleanup_prompt_history';
-    const MAX_PROMPT_HISTORY     = 6;
-    const ANTHROPIC_URL          = 'https://api.anthropic.com/v1/messages';
-    const OPENAI_URL             = 'https://api.openai.com/v1/chat/completions';
+    const STORAGE_PROVIDER        = 'text_cleanup_provider';
+    const STORAGE_ANTHROPIC_KEY   = 'text_cleanup_anthropic_api_key';
+    const STORAGE_ANTHROPIC_MODEL  = 'text_cleanup_anthropic_model';
+    const STORAGE_OPENAI_KEY      = 'text_cleanup_openai_api_key';
+    const STORAGE_OPENAI_MODEL    = 'text_cleanup_openai_model';
+    const STORAGE_GEMINI_KEY      = 'text_cleanup_gemini_api_key';
+    const STORAGE_GEMINI_MODEL    = 'text_cleanup_gemini_model';
+    const PROMPT_HISTORY_KEY      = 'text_cleanup_prompt_history';
+    const MAX_PROMPT_HISTORY      = 6;
+    const ANTHROPIC_URL           = 'https://api.anthropic.com/v1/messages';
+    const OPENAI_URL              = 'https://api.openai.com/v1/chat/completions';
+    const GEMINI_URL_BASE         = 'https://generativelanguage.googleapis.com/v1beta/models';
 
     const ANTHROPIC_MODELS = [
       { id: 'claude-haiku-4-5-20251001',   label: 'Claude Haiku 4.5', recommended: true },
@@ -663,6 +688,13 @@
       { id: 'gpt-4o-mini',        label: 'GPT-4o Mini', recommended: true },
       { id: 'gpt-3.5-turbo',      label: 'GPT-3.5 Turbo' },
       { id: 'o1-mini',            label: 'o1 Mini' },
+    ];
+
+    const GEMINI_MODELS = [
+      { id: 'gemini-2.0-flash',   label: 'Gemini 2.0 Flash', recommended: true },
+      { id: 'gemini-1.5-flash',    label: 'Gemini 1.5 Flash' },
+      { id: 'gemini-1.5-flash-8b', label: 'Gemini 1.5 Flash 8B' },
+      { id: 'gemini-1.5-pro',     label: 'Gemini 1.5 Pro' },
     ];
 
     const promptHistoryRow    = document.getElementById('promptHistoryRow');
@@ -685,8 +717,10 @@
     // API & model settings
     // ─────────────────────────────────────────────
     function getProvider() {
-      const p = localStorage.getItem(STORAGE_PROVIDER) || 'anthropic';
-      return p === 'openai' ? 'openai' : 'anthropic';
+      const p = localStorage.getItem(STORAGE_PROVIDER) || 'gemini';
+      if (p === 'openai') return 'openai';
+      if (p === 'gemini') return 'gemini';
+      return 'anthropic';
     }
 
     function getAnthropicKey() {
@@ -709,6 +743,16 @@
       return valid ? saved : 'gpt-4o-mini';
     }
 
+    function getGeminiKey() {
+      return localStorage.getItem(STORAGE_GEMINI_KEY) || '';
+    }
+
+    function getGeminiModel() {
+      const saved = localStorage.getItem(STORAGE_GEMINI_MODEL) || '';
+      const valid = GEMINI_MODELS.some((m) => m.id === saved);
+      return valid ? saved : 'gemini-2.0-flash';
+    }
+
     function fillModelSelect(select, models, selectedId) {
       select.innerHTML = '';
       models.forEach((m) => {
@@ -721,19 +765,23 @@
     }
 
     function updateModalProviderVisibility() {
-      const isAnthropic = providerSelect.value !== 'openai';
-      anthropicSection.classList.toggle('hidden', !isAnthropic);
-      openaiSection.classList.toggle('hidden', isAnthropic);
+      const p = providerSelect.value;
+      anthropicSection.classList.toggle('hidden', p !== 'anthropic');
+      openaiSection.classList.toggle('hidden', p !== 'openai');
+      geminiSection.classList.toggle('hidden', p !== 'gemini');
     }
 
     function openModal() {
       providerSelect.value = getProvider();
       anthropicKeyInput.value = getAnthropicKey();
       openaiKeyInput.value = getOpenaiKey();
+      geminiKeyInput.value = getGeminiKey();
       fillModelSelect(anthropicModelSelect, ANTHROPIC_MODELS, getAnthropicModel());
       fillModelSelect(openaiModelSelect, OPENAI_MODELS, getOpenaiModel());
+      fillModelSelect(geminiModelSelect, GEMINI_MODELS, getGeminiModel());
       anthropicKeyInput.style.borderColor = '';
       openaiKeyInput.style.borderColor = '';
+      geminiKeyInput.style.borderColor = '';
       updateModalProviderVisibility();
       apiModal.classList.remove('hidden');
       providerSelect.focus();
@@ -746,7 +794,7 @@
     }
 
     function hasAnyApiKey() {
-      return !!(getAnthropicKey().trim() || getOpenaiKey().trim());
+      return !!(getAnthropicKey().trim() || getOpenaiKey().trim() || getGeminiKey().trim());
     }
 
     settingsBtn.addEventListener('click', openModal);
@@ -754,11 +802,13 @@
     modalCancel.addEventListener('click', closeModal);
 
     modalSave.addEventListener('click', () => {
-      const provider = providerSelect.value === 'openai' ? 'openai' : 'anthropic';
+      const provider = providerSelect.value;
       const anthropicKey = anthropicKeyInput.value.trim();
       const openaiKey = openaiKeyInput.value.trim();
+      const geminiKey = geminiKeyInput.value.trim();
       const anthropicModel = anthropicModelSelect.value;
       const openaiModel = openaiModelSelect.value;
+      const geminiModel = geminiModelSelect.value;
       if (provider === 'anthropic' && !anthropicKey) {
         anthropicKeyInput.style.borderColor = 'rgba(233,69,96,0.8)';
         return;
@@ -767,17 +817,23 @@
         openaiKeyInput.style.borderColor = 'rgba(233,69,96,0.8)';
         return;
       }
+      if (provider === 'gemini' && !geminiKey) {
+        geminiKeyInput.style.borderColor = 'rgba(233,69,96,0.8)';
+        return;
+      }
       localStorage.setItem(STORAGE_PROVIDER, provider);
       localStorage.setItem(STORAGE_ANTHROPIC_KEY, anthropicKey);
       localStorage.setItem(STORAGE_OPENAI_KEY, openaiKey);
+      localStorage.setItem(STORAGE_GEMINI_KEY, geminiKey);
       localStorage.setItem(STORAGE_ANTHROPIC_MODEL, anthropicModel);
       localStorage.setItem(STORAGE_OPENAI_MODEL, openaiModel);
+      localStorage.setItem(STORAGE_GEMINI_MODEL, geminiModel);
       closeModal();
       clearError();
       instructionInput.focus();
     });
 
-    [anthropicKeyInput, openaiKeyInput, providerSelect, anthropicModelSelect, openaiModelSelect].forEach((el) => {
+    [anthropicKeyInput, openaiKeyInput, geminiKeyInput, providerSelect, anthropicModelSelect, openaiModelSelect, geminiModelSelect].forEach((el) => {
       el.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') modalSave.click();
         if (e.key === 'Escape') closeModal();
@@ -977,6 +1033,26 @@ ${text}`;
       return data?.choices?.[0]?.message?.content?.trim() ?? '';
     }
 
+    async function callGemini(apiKey, model, instruction, text) {
+      const url = `${GEMINI_URL_BASE}/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const userContent = `${SYSTEM_PROMPT}\n\n${buildUserMessage(instruction, text)}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: userContent }] }],
+          generationConfig: { maxOutputTokens: 8192 },
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        const errMsg = data?.error?.message || `API error (${response.status})`;
+        throw new Error(errMsg);
+      }
+      const part = data?.candidates?.[0]?.content?.parts?.[0];
+      return part?.text?.trim() ?? '';
+    }
+
     async function applyTransformation() {
       const instruction = instructionInput.value.trim();
       const text        = editor.value;
@@ -990,6 +1066,7 @@ ${text}`;
 
       const anthropicKey = getAnthropicKey();
       const openaiKey    = getOpenaiKey();
+      const geminiKey    = getGeminiKey();
       if (provider === 'anthropic' && !anthropicKey) {
         showError('No Anthropic API key set. Click the ⚙ gear to add your key and choose a model.');
         openModal();
@@ -997,6 +1074,11 @@ ${text}`;
       }
       if (provider === 'openai' && !openaiKey) {
         showError('No OpenAI API key set. Click the ⚙ gear to add your key and choose a model.');
+        openModal();
+        return;
+      }
+      if (provider === 'gemini' && !geminiKey) {
+        showError('No Gemini API key set. Click the ⚙ gear to add your key (free at aistudio.google.com).');
         openModal();
         return;
       }
@@ -1014,10 +1096,17 @@ ${text}`;
             instruction,
             text
           );
-        } else {
+        } else if (provider === 'openai') {
           transformed = await callOpenAI(
             openaiKey,
             getOpenaiModel(),
+            instruction,
+            text
+          );
+        } else {
+          transformed = await callGemini(
+            geminiKey,
+            getGeminiModel(),
             instruction,
             text
           );
