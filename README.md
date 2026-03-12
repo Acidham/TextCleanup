@@ -15,13 +15,13 @@ A single-file browser app for AI-powered text transformations. Paste any text, t
 
 ### Option A — Open locally
 
-Just open `Text_Cleanup.html` in any modern browser.
+Just open `index.html` in any modern browser.
 
 ### Option B — GitHub Pages
 
 1. Fork / clone this repo
 2. Go to **Settings → Pages** and set source to the `main` branch (root)
-3. Access at `https://<your-username>.github.io/<repo-name>/Text_Cleanup.html`
+3. Access at `https://<your-username>.github.io/<repo-name>/`
 
 ## Setup
 
