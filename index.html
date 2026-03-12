@@ -2,13 +2,22 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Text Cleanup</title>
   <style>
     /* ── Reset & base ── */
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    html, body { height: 100%; overflow: hidden; }
+    button, input, select, .prompt-history-chip, .prompt-history-chip-text, .prompt-history-chip-delete {
+      -webkit-tap-highlight-color: rgba(255,255,255,0.15);
+    }
+
+    html {
+      height: 100%;
+      min-height: 100vh;
+      min-height: -webkit-fill-available;
+      overflow: hidden;
+    }
 
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -16,7 +25,12 @@
       color: #fff;
       display: flex;
       flex-direction: column;
-      height: 100vh;
+      min-height: 100vh;
+      min-height: -webkit-fill-available;
+      height: 100%;
+      overflow: hidden;
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
     }
 
     /* ── Toolbar ── */
@@ -26,6 +40,7 @@
       align-items: center;
       justify-content: space-between;
       padding: 0.6rem 1.25rem;
+      padding-top: calc(0.6rem + env(safe-area-inset-top));
       background: rgba(255,255,255,0.06);
       border-bottom: 1px solid rgba(255,255,255,0.1);
       backdrop-filter: blur(10px);
@@ -63,6 +78,7 @@
       align-items: center;
       gap: 0.35rem;
       padding: 0.45rem 0.9rem;
+      min-height: 44px;
       font-size: 0.82rem;
       border: 1px solid rgba(255,255,255,0.18);
       border-radius: 7px;
@@ -84,6 +100,8 @@
 
     .tool-btn--icon {
       padding: 0.45rem 0.6rem;
+      min-width: 44px;
+      min-height: 44px;
       font-size: 1rem;
     }
 
@@ -106,6 +124,7 @@
       flex: 1;
       position: relative;
       overflow: hidden;
+      min-height: 0;
     }
 
     .editor {
@@ -121,6 +140,7 @@
       color: rgba(255,255,255,0.9);
       resize: none;
       caret-color: #e94560;
+      -webkit-overflow-scrolling: touch;
     }
 
     .editor::placeholder { color: rgba(255,255,255,0.2); }
@@ -156,6 +176,7 @@
     .instruction-bar {
       flex-shrink: 0;
       padding: 0.75rem 1.25rem;
+      padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
       background: rgba(255,255,255,0.06);
       border-top: 1px solid rgba(255,255,255,0.1);
       backdrop-filter: blur(10px);
@@ -170,6 +191,7 @@
     .instruction-input {
       flex: 1;
       padding: 0.65rem 1rem;
+      min-height: 44px;
       font-size: 0.9rem;
       font-family: inherit;
       background: rgba(255,255,255,0.1);
@@ -189,6 +211,7 @@
 
     .apply-btn {
       padding: 0.65rem 1.5rem;
+      min-height: 44px;
       font-size: 0.9rem;
       font-weight: 600;
       font-family: inherit;
@@ -239,6 +262,7 @@
       align-items: center;
       gap: 0.2rem;
       padding: 0.3rem 0.35rem 0.3rem 0.6rem;
+      min-height: 44px;
       font-size: 0.78rem;
       font-family: inherit;
       border: 1px solid rgba(255,255,255,0.18);
@@ -260,8 +284,9 @@
 
     .prompt-history-chip-delete {
       flex-shrink: 0;
-      width: 20px;
-      height: 20px;
+      width: 44px;
+      height: 44px;
+      margin: -12px -6px -12px 0;
       padding: 0;
       display: inline-flex;
       align-items: center;
@@ -288,8 +313,11 @@
       background: rgba(0,0,0,0.6);
       backdrop-filter: blur(6px);
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
+      padding-top: max(1rem, env(safe-area-inset-top));
+      padding-bottom: max(1rem, env(safe-area-inset-bottom));
+      overflow-y: auto;
       z-index: 100;
     }
 
@@ -298,9 +326,16 @@
       border: 1px solid rgba(255,255,255,0.15);
       border-radius: 14px;
       padding: 2rem;
+      padding-left: calc(2rem + env(safe-area-inset-left));
+      padding-right: calc(2rem + env(safe-area-inset-right));
+      padding-top: calc(2rem + env(safe-area-inset-top));
+      padding-bottom: calc(2rem + env(safe-area-inset-bottom));
       width: 420px;
       max-width: 90vw;
+      max-height: 85vh;
+      overflow-y: auto;
       box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      margin: auto 0 1rem;
     }
 
     .modal.modal-settings { width: 460px; }
@@ -322,6 +357,7 @@
     .modal-input {
       width: 100%;
       padding: 0.65rem 1rem;
+      min-height: 44px;
       font-size: 0.88rem;
       font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
       background: rgba(255,255,255,0.08);
@@ -353,6 +389,7 @@
     .modal-select {
       width: 100%;
       padding: 0.65rem 1rem;
+      min-height: 44px;
       font-size: 0.88rem;
       font-family: inherit;
       background: rgba(255,255,255,0.08);
@@ -387,6 +424,7 @@
 
     .modal-save {
       padding: 0.55rem 1.25rem;
+      min-height: 44px;
       font-size: 0.88rem;
       font-weight: 600;
       font-family: inherit;
@@ -402,6 +440,7 @@
 
     .modal-cancel {
       padding: 0.55rem 1.25rem;
+      min-height: 44px;
       font-size: 0.88rem;
       font-family: inherit;
       border: 1px solid rgba(255,255,255,0.18);
@@ -413,6 +452,32 @@
     }
 
     .modal-cancel:hover { background: rgba(255,255,255,0.15); }
+
+    /* ── iOS / narrow viewport: prevent input zoom (16px), editor padding ── */
+    @media (max-width: 768px) {
+      .instruction-input { font-size: 16px; }
+      .editor {
+        font-size: 16px;
+        padding: 1.5rem 1.25rem;
+      }
+    }
+
+    /* ── Small screens: toolbar and instruction bar layout ── */
+    @media (max-width: 600px) {
+      .toolbar {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      .instruction-inner {
+        flex-wrap: wrap;
+      }
+      .instruction-inner .instruction-input {
+        min-width: 100%;
+      }
+      .instruction-inner .apply-btn {
+        width: 100%;
+      }
+    }
 
     /* ── Utility ── */
     .hidden { display: none !important; }
