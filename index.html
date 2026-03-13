@@ -179,6 +179,65 @@
       backdrop-filter: blur(10px);
     }
 
+    /* ── Mobile history hamburger button ── */
+    .history-menu-btn {
+      display: none; /* hidden on desktop */
+    }
+
+    /* ── Mobile history dropdown ── */
+    .history-dropdown {
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      max-height: 40vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      margin: -0.75rem -1.25rem 0.75rem;  /* bleed to footer edges */
+    }
+
+    .history-dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.25rem;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .history-dropdown-item:last-child { border-bottom: none; }
+    .history-dropdown-item:hover { background: rgba(255,255,255,0.08); }
+
+    .history-dropdown-item-text {
+      flex: 1;
+      min-width: 0;
+      font-size: 0.88rem;
+      color: rgba(255,255,255,0.85);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .history-dropdown-item-delete {
+      flex-shrink: 0;
+      width: 44px;
+      height: 44px;
+      margin: -8px -8px -8px 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      border: none;
+      border-radius: 4px;
+      background: transparent;
+      color: rgba(255,255,255,0.4);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .history-dropdown-item-delete:hover {
+      background: rgba(233,69,96,0.35);
+      color: #fff;
+    }
+
     .instruction-inner {
       display: flex;
       gap: 0.6rem;
@@ -483,8 +542,12 @@
         min-width: 100%;
       }
       .instruction-inner .apply-btn {
-        width: 100%;
+        flex: 1; /* share row with hamburger button */
       }
+      /* hide desktop chip row on mobile */
+      .prompt-history-row { display: none !important; }
+      /* show hamburger when there is history */
+      .history-menu-btn.has-history { display: inline-flex; }
     }
 
     /* ── Utility ── */
@@ -616,6 +679,7 @@
 
   <!-- ── Bottom Instruction Bar ── -->
   <footer class="instruction-bar">
+    <div id="historyDropdown" class="history-dropdown hidden"></div>
     <div class="instruction-inner">
       <input
         type="text"
@@ -625,6 +689,7 @@
         autocomplete="off"
       />
       <button id="applyBtn" class="apply-btn">Apply</button>
+      <button id="historyMenuBtn" class="tool-btn tool-btn--icon history-menu-btn" title="Recent prompts" aria-label="Recent prompts">&#9776;</button>
     </div>
     <div id="promptHistoryRow" class="prompt-history-row hidden">
       <span class="prompt-history-label">Recent:</span>
@@ -645,6 +710,8 @@
     const charCount        = document.getElementById('charCount');
     const instructionInput = document.getElementById('instructionInput');
     const applyBtn         = document.getElementById('applyBtn');
+    const historyMenuBtn   = document.getElementById('historyMenuBtn');
+    const historyDropdown  = document.getElementById('historyDropdown');
     const loadingOverlay   = document.getElementById('loadingOverlay');
     const errorMsg         = document.getElementById('errorMsg');
     const settingsBtn      = document.getElementById('settingsBtn');
@@ -916,6 +983,7 @@
     }
 
     function renderPromptHistory() {
+      // ── Desktop chips ──
       promptHistoryList.innerHTML = '';
       promptHistory.forEach((text) => {
         const chip = document.createElement('span');
@@ -930,6 +998,23 @@
         promptHistoryList.appendChild(chip);
       });
       promptHistoryRow.classList.toggle('hidden', promptHistory.length === 0);
+
+      // ── Mobile dropdown ──
+      historyDropdown.innerHTML = '';
+      promptHistory.forEach((text) => {
+        const item = document.createElement('div');
+        item.className = 'history-dropdown-item';
+        item.innerHTML = `
+          <span class="history-dropdown-item-text" data-prompt="${escapeHtml(text)}" title="${escapeHtml(text)}">${escapeHtml(text)}</span>
+          <button type="button" class="history-dropdown-item-delete" data-prompt="${escapeHtml(text)}" title="Remove" aria-label="Remove">×</button>
+        `;
+        historyDropdown.appendChild(item);
+      });
+
+      // Show/hide hamburger based on whether history exists
+      const hasHistory = promptHistory.length > 0;
+      historyMenuBtn.classList.toggle('has-history', hasHistory);
+      if (!hasHistory) closeHistoryDropdown();
     }
 
     function escapeHtml(s) {
@@ -938,6 +1023,44 @@
       return div.innerHTML;
     }
 
+    // ── Mobile dropdown toggle ──
+    let historyDropdownOpen = false;
+
+    function closeHistoryDropdown() {
+      historyDropdownOpen = false;
+      historyDropdown.classList.add('hidden');
+    }
+
+    function openHistoryDropdown() {
+      historyDropdownOpen = true;
+      historyDropdown.classList.remove('hidden');
+    }
+
+    historyMenuBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      historyDropdownOpen ? closeHistoryDropdown() : openHistoryDropdown();
+    });
+
+    historyDropdown.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const textEl   = e.target.closest('.history-dropdown-item-text');
+      const deleteBtn = e.target.closest('.history-dropdown-item-delete');
+      if (deleteBtn && deleteBtn.dataset.prompt) {
+        removePromptHistoryEntry(deleteBtn.dataset.prompt);
+        return;
+      }
+      if (textEl && textEl.dataset.prompt) {
+        instructionInput.value = textEl.dataset.prompt;
+        closeHistoryDropdown();
+        instructionInput.focus();
+      }
+    });
+
+    document.addEventListener('click', () => {
+      if (historyDropdownOpen) closeHistoryDropdown();
+    });
+
+    // ── Desktop chips click ──
     promptHistoryList.addEventListener('click', (e) => {
       const textEl = e.target.closest('.prompt-history-chip-text');
       const deleteBtn = e.target.closest('.prompt-history-chip-delete');
