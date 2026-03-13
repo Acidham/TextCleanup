@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-visual" />
   <title>Text Cleanup</title>
   <style>
     /* ── Reset & base ── */
@@ -15,6 +15,7 @@
     html {
       height: 100%;
       overflow: hidden;
+      overscroll-behavior: none;
     }
 
     body {
@@ -25,6 +26,7 @@
       flex-direction: column;
       height: var(--app-height, 100svh);
       overflow: hidden;
+      overscroll-behavior: none;
       padding-left: env(safe-area-inset-left);
       padding-right: env(safe-area-inset-right);
     }
@@ -1327,11 +1329,22 @@ ${text}`;
     function updateAppHeight() {
       const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
       document.documentElement.style.setProperty('--app-height', h + 'px');
+      document.body.style.height = h + 'px'; // belt-and-suspenders: bypass CSS var timing
+      // Undo any scroll iOS may have injected
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
     }
     if (window.visualViewport) {
       window.visualViewport.addEventListener('resize', updateAppHeight);
+      window.visualViewport.addEventListener('scroll', updateAppHeight); // iOS fires scroll, not resize
     }
     window.addEventListener('resize', updateAppHeight);
+    // Re-check after keyboard animation completes (~300 ms)
+    instructionInput.addEventListener('focus', () => {
+      setTimeout(updateAppHeight, 100);
+      setTimeout(updateAppHeight, 350);
+    });
+    instructionInput.addEventListener('blur', () => setTimeout(updateAppHeight, 100));
     updateAppHeight();
   </script>
 </body>
